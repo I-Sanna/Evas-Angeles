@@ -9,6 +9,7 @@
 #include <tuple>
 #include <cassert>
 #include <atomic>
+#include <fstream>
 
 using namespace std;
 
@@ -41,7 +42,7 @@ int main(int argc, char* argv[])
     cout << "La reproduccion de los angeles fue la siguiente: " << endl;
     int pid = fork();
     if (pid == 0){
-        adam(max_days, 5, 40, qtyAngeles, powerAngeles);
+        adam(max_days, N, P2, qtyAngeles, powerAngeles);
         exit(0);
     }
     else{
@@ -51,7 +52,7 @@ int main(int argc, char* argv[])
     cout << "La reproduccion de los evitas fue la siguiente: " << endl;
     pid = fork();
     if (pid == 0){
-        lilith(max_days, 5, 40, 25, qtyEvas, powerEvas);
+        lilith(max_days, M, P1, P3, qtyEvas, powerEvas);
         exit(0);
     }
     else{
@@ -74,6 +75,18 @@ int main(int argc, char* argv[])
     if (dayFound == false){
         cout << "No hubo dias que coincidan con los parametros enviados de la simulacion. Estamos perdidos, disfruten sus ultimos momentos señores";
     }
+
+    // Create an output filestream object
+    std::ofstream myFile("resultado.csv");
+    
+    // Send data to the stream
+    myFile << max_days << " " << M << " " << N << " " << P1 << " " << P2 << " " << P3 << " " << margin << "\n";
+    for (int days = 0; days <= max_days; days++){
+        myFile << "Dia: " << days << " Evitas: " << qtyEvas[days] << " Angeles: " << qtyAngeles[days] << "\n";
+    }
+    
+    // Close the file
+    myFile.close();
 
     exit(0);
 
