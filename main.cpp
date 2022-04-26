@@ -8,6 +8,7 @@
 #include <string.h>  
 #include <tuple>
 #include <cassert>
+#include <atomic>
 
 using namespace std;
 
@@ -17,40 +18,87 @@ float Gauss(string my_type);
 
 tuple<int, float, string, float> spawnChildren(int childrenQty, float birthProb, float rageProb, string unitType);
 
-void adam(int days, int N, float P2);
+void adam(int days, int N, float P2, atomic<float> *qtyAngeles, atomic<float> *powerAngeles);
 
-void lilith(int days, int M, float P1, float P3);
+void lilith(int days, int M, float P1, float P3, atomic<float> *qtyEvas, atomic<float> *powerEvas);
 
-int main()
+int main(int argc, char* argv[])
 {
-    /*
-	int max_days = atoi(argv[1]); 
+	int max_days = atoi(argv[1]);
 	int M = atoi(argv[2]); 
 	int N = atoi(argv[3]); 
 	float P1 = stof(argv[4]);
 	float P2 = stof(argv[5]);
 	float P3 = stof(argv[6]);
-    */
-    adam(2, 3, 100);
+    float margin = stof(argv[7]);
+
+    atomic<float> *qtyAngeles = (atomic<float> *) share_mem(max_days + 1);
+    atomic<float> *powerAngeles = (atomic<float> *) share_mem(max_days + 1);
+
+    atomic<float> *qtyEvas = (atomic<float> *) share_mem(max_days + 1);
+    atomic<float> *powerEvas = (atomic<float> *) share_mem(max_days + 1);
+
+    cout << "La reproduccion de los angeles fue la siguiente: " << endl;
+    int pid = fork();
+    if (pid == 0){
+        adam(max_days, 5, 40, qtyAngeles, powerAngeles);
+        exit(0);
+    }
+    else{
+        wait(NULL);
+    }
+
+    cout << "La reproduccion de los evitas fue la siguiente: " << endl;
+    pid = fork();
+    if (pid == 0){
+        lilith(max_days, 5, 40, 25, qtyEvas, powerEvas);
+        exit(0);
+    }
+    else{
+        wait(NULL);
+    }
+
+    for (int days = 1; days <= max_days; days++){
+        powerAngeles[days] = powerAngeles[days] + powerAngeles[days - 1];
+        powerEvas[days] = powerEvas[days] + powerEvas[days - 1];
+    }
+
+    bool dayFound = false;
+    for (int days = 1; days <= max_days; days++){
+        if (powerAngeles[days] - powerEvas[days] < margin){
+            dayFound = true;
+            cout << "Se encontro un dia que coincide con las simulaciones y el margen. El dia establecido es el dia numero: " << days << endl;
+            break;
+        }
+    }
+    if (dayFound == false){
+        cout << "No hubo dias que coincidan con los parametros enviados de la simulacion. Estamos perdidos, disfruten sus ultimos momentos señores";
+    }
+
+    exit(0);
 
 }
 
-void adam(int days, int N, float P2){
-    float *qtyAngeles = (float *) share_mem(days + 1);
-    float *powerAngeles = (float *) share_mem(days + 1);
+void adam(int days, int N, float P2, atomic<float> *qtyAngeles, atomic<float> *powerAngeles){
+
     string type = "Angeles";
     int fatherPid = getpid();
+
     float childPower = 0;
     float adamPower = Gauss(type);
     qtyAngeles[0] = 1;
     powerAngeles[0] = adamPower;
+
     for (int currentDay = 1; currentDay <= days; currentDay++){
         if(type == "Angeles"){
             tuple<int, float, string, float> result = spawnChildren(N, P2, -1, type);
+
             if ("parent" == get<2>(result)){
+
                 type = get<2>(result);
                 qtyAngeles[currentDay] = qtyAngeles[currentDay] + get<0>(result);
                 powerAngeles[currentDay] = powerAngeles[currentDay] + get<1>(result);
+
                 if (fatherPid == getpid()){
                     cout << "El padre: " << getpid() << " tiene un poder de: " << adamPower << " y engendro " << get<0>(result) << " hijo/s" << endl;
                 }
@@ -59,34 +107,41 @@ void adam(int days, int N, float P2){
                 }                 
             }
             else{
+
                 childPower = get<3>(result);
+
                 if (currentDay == days){
                     cout << "El hijo: " << getpid() << " siendo su padre: " << getppid() << " tiene un poder de: " << childPower << " y engendro " << "0 hijos" << endl;
                 }
+
             }
         }
     }
-    if(fatherPid != getpid()){
+    if (getpid() != fatherPid){
         exit(0);
     }
 }
 
-void lilith(int days, int M, float P1, float P3){
-    float *qtyEvas = (float *) share_mem(days);
-    float *powerEvas = (float *) share_mem(days);
+void lilith(int days, int M, float P1, float P3, atomic<float> *qtyEvas, atomic<float> *powerEvas){
+
     string type = "Evitas";
     int fatherPid = getpid();
+
     float childPower = 0;
     float lilithPower = Gauss(type);
     qtyEvas[0] = 1;
     powerEvas[0] = lilithPower;
+
     for (int currentDay = 1; currentDay <= days; currentDay++){
         if(type == "Evitas"){
             tuple<int, float, string, float> result = spawnChildren(M, P1, P3, type);
+
             if ("parent" == get<2>(result)){
+
                 type = get<2>(result);
                 qtyEvas[currentDay] = qtyEvas[currentDay] + get<0>(result);
                 powerEvas[currentDay] = powerEvas[currentDay] + get<1>(result);
+
                 if (fatherPid == getpid()){
                     cout << "El padre: " << getpid() << " tiene un poder de: " << lilithPower << " y engendro " << get<0>(result) << " hijo/s" << endl;
                 }
@@ -95,38 +150,44 @@ void lilith(int days, int M, float P1, float P3){
                 }                 
             }
             else{
+
                 childPower = get<3>(result);
+
                 if (currentDay == days || get<2>(result) == "invalid"){
                     type = get<2>(result);
                     cout << "El hijo: " << getpid() << " siendo su padre: " << getppid() << " tiene un poder de: " << childPower << " y engendro " << "0 hijos" << endl;
                 }
+
             }
         }
+    }
+    if (getpid() != fatherPid){
+        exit(0);
     }
 }
 
 tuple<int, float, string, float> spawnChildren(int childrenQty, float birthProb, float rageProb, string unitType){
+
     int pid = -1;
     int children = 0;
-    float *power = (float *) share_mem(1);
+    atomic<float> *power = (atomic<float> *) share_mem(1);
     float unitPower = 0;
+
     srand(time(NULL));
+
     for (int i = 0; i < childrenQty; i++){
         if (pid != 0){
             if (((float)rand()) / ((float)RAND_MAX) * (0 - 100) + 100 < birthProb){
                 children += 1;
                 pid = fork();
             }
-            if (pid != 0){
-                wait(NULL);
-            }
         }
         if (pid == 0){
+
             unitPower = Gauss(unitType);
+
             if (((float)rand()) / ((float)RAND_MAX) * (0 - 100) + 100 < rageProb){
-                cout << unitPower << endl;
                 unitPower *= 2;
-                cout << unitPower << endl;
                 power[0] = power[0] + unitPower;
                 unitType = "invalid";
                 children = 0;
@@ -134,13 +195,20 @@ tuple<int, float, string, float> spawnChildren(int childrenQty, float birthProb,
             else{
                 power[0] = power[0] + unitPower;
             }
+
             break;
         }
     }
+
     float totalPower = power[0];;
+
     if (pid != 0){
+        for (int child = 0; child < children; child++){
+            wait(NULL);
+        }
         unitType = "parent";
     }
+
     return make_tuple(children, totalPower, unitType, unitPower);
 }
 
@@ -149,7 +217,7 @@ void* share_mem(int size)
 	// Vamos a pedir size * sizeof(int) para reservar suficiendte memoria 
 	// para un vector sizeof nos dice el tamaño del tipo atomic int.
     void * mem;
-    if( MAP_FAILED == (mem = (float*)mmap(NULL, sizeof(float)*size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0) ) )
+    if( MAP_FAILED == (mem = (atomic<float>*)mmap(NULL, sizeof(atomic<float>)*size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0) ) )
     {
         perror( "mmap failed" );
         exit( EXIT_FAILURE );
@@ -172,6 +240,10 @@ float Gauss(string my_type){
  	normal_distribution<double> ap_distribution(u,std);
 
     float power = ap_distribution(generator);
+
+    if (power < 0){
+        power = 0;
+    }
 
     return power;
 }
